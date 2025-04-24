@@ -1,11 +1,11 @@
 package modbus
 
 import (
-	"io"
+	"fmt"
 	"sync"
 	"time"
 
-	"github.com/goburrow/serial"
+	"go.bug.st/serial"
 )
 
 // SerialDefaultTimeout Serial Default timeout
@@ -13,14 +13,19 @@ const SerialDefaultTimeout = 1 * time.Second
 
 // serialPort has configuration and I/O controller.
 type serialPort struct {
+	ComName string
 	// Serial port configuration.
-	serial.Config
-	mu   sync.Mutex
-	port io.ReadWriteCloser
+	serial.Mode
+	mu      sync.Mutex
+	port    serial.Port
+	TimeOut time.Duration
 }
 
 // Connect try to connect the remote server
 func (sf *serialPort) Connect() (err error) {
+	if sf.ComName == "" {
+		return fmt.Errorf("serial port name is empty")
+	}
 	sf.mu.Lock()
 	err = sf.connect()
 	sf.mu.Unlock()
@@ -30,10 +35,12 @@ func (sf *serialPort) Connect() (err error) {
 // Caller must hold the mutex before calling this method.
 func (sf *serialPort) connect() error {
 	if sf.port == nil {
-		port, err := serial.Open(&sf.Config)
+		fmt.Printf("open port %s, mode: %+v", sf.ComName, sf.Mode)
+		port, err := serial.Open(sf.ComName, &sf.Mode)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to open serial port: %s err %v", sf.ComName, err)
 		}
+		port.SetReadTimeout(sf.TimeOut)
 		sf.port = port
 	}
 	return nil
@@ -48,11 +55,14 @@ func (sf *serialPort) IsConnected() (b bool) {
 }
 
 // setSerialConfig set serial config
-func (sf *serialPort) setSerialConfig(config serial.Config) {
-	sf.Config = config
+func (sf *serialPort) setSerialConfig(commName string, config serial.Mode) {
+	sf.Mode = config
+	sf.ComName = commName
 }
 
-func (sf *serialPort) setTCPTimeout(time.Duration) {}
+func (sf *serialPort) setTimeout(t time.Duration) {
+	sf.TimeOut = t
+}
 
 func (sf *serialPort) close() (err error) {
 	if sf.port != nil {

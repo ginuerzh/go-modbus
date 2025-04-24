@@ -4,20 +4,18 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/goburrow/serial"
+	"go.bug.st/serial"
 
-	modbus "github.com/things-go/go-modbus"
+	modbus "github.com/ginuerzh/go-modbus"
 )
 
 func main() {
 	p := modbus.NewRTUClientProvider(modbus.WithEnableLogger(),
-		modbus.WithSerialConfig(serial.Config{
-			Address:  "/dev/ttyUSB0",
+		modbus.WithSerialConfig("COM11", serial.Mode{
 			BaudRate: 115200,
 			DataBits: 8,
-			StopBits: 1,
-			Parity:   "N",
-			Timeout:  modbus.SerialDefaultTimeout,
+			StopBits: serial.OneStopBit,
+			Parity:   serial.NoParity,
 		}))
 
 	client := modbus.NewClient(p)
@@ -30,13 +28,13 @@ func main() {
 
 	fmt.Println("starting")
 	for {
-		_, err := client.ReadCoils(3, 0, 10)
+		results, err := client.ReadHoldingRegisters(1, 0x4001, 5)
 		if err != nil {
 			fmt.Println(err.Error())
 		}
 
-		//	fmt.Printf("ReadDiscreteInputs %#v\r\n", results)
+		fmt.Printf("ReadHoldingRegisters %v\n", results)
 
-		time.Sleep(time.Second * 2)
+		time.Sleep(time.Second * 1)
 	}
 }
